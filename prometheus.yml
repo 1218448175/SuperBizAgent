@@ -1,0 +1,40 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# 告警规则文件（可后续添加）
+# rule_files:
+#   - "alerts.yml"
+
+# 抓取目标
+scrape_configs:
+  # ========== Compose 网络内服务 ==========
+  # 这些服务与 Prometheus 在同一个 milvus 网络，直接用 service name 访问
+
+  # Prometheus 自身监控
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Milvus 向量数据库（内置 /metrics，端口 9091）
+  - job_name: "milvus"
+    static_configs:
+      - targets: ["standalone:9091"]
+
+  # ========== 宿主机服务 ==========
+  # FastAPI / MCP 运行在宿主机，容器通过 host.docker.internal 访问
+
+  # OnCall Agent FastAPI 主服务
+  - job_name: "oncall-agent"
+    static_configs:
+      - targets: ["host.docker.internal:9900"]
+
+  # MCP CLS 服务
+  - job_name: "mcp-cls"
+    static_configs:
+      - targets: ["host.docker.internal:8003"]
+
+  # MCP Monitor 服务
+  - job_name: "mcp-monitor"
+    static_configs:
+      - targets: ["host.docker.internal:8004"]
