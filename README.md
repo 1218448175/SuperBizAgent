@@ -24,6 +24,7 @@
 ## 🚀 快速开始
 
 ### 环境要求
+
 - Python 3.10+
 - 阿里云 DashScope API Key ([获取地址](https://dashscope.aliyun.com/))
 
@@ -124,6 +125,7 @@ python -c "import requests, os, time; [requests.post('http://localhost:9900/api/
 ```
 
 ### 访问服务
+
 - **Web 界面**: http://localhost:9900
 - **API 文档**: http://localhost:9900/docs
 
@@ -131,13 +133,13 @@ python -c "import requests, os, time; [requests.post('http://localhost:9900/api/
 
 ### 核心接口
 
-| 功能 | 方法 | 路径 | 说明 |
-|------|------|------|------|
-| 普通对话 | POST | `/api/chat` | 一次性返回 |
-| 流式对话 | POST | `/api/chat_stream` | SSE 流式输出 |
-| AIOps 诊断 | POST | `/api/aiops` | 自动故障诊断（流式） |
-| 文件上传 | POST | `/api/upload` | 上传并索引文档 |
-| 健康检查 | GET | `/api/health` | 服务状态检查 |
+| 功能       | 方法   | 路径                 | 说明         |
+| -------- | ---- | ------------------ | ---------- |
+| 普通对话     | POST | `/api/chat`        | 一次性返回      |
+| 流式对话     | POST | `/api/chat_stream` | SSE 流式输出   |
+| AIOps 诊断 | POST | `/api/aiops`       | 自动故障诊断（流式） |
+| 文件上传     | POST | `/api/upload`      | 上传并索引文档    |
+| 健康检查     | GET  | `/api/health`      | 服务状态检查     |
 
 ### 使用示例
 
@@ -260,6 +262,7 @@ CHUNK_OVERLAP=100
 基于 **Plan-Execute-Replan** 模式实现自动故障诊断。
 
 ### 核心特性
+
 - ✅ 自动制定诊断计划（Planner）
 - ✅ 智能工具调用（Executor）
 - ✅ 动态调整步骤（Replanner）
@@ -281,6 +284,7 @@ curl -X POST "http://localhost:9900/api/aiops" \
 ```
 
 ### 诊断流程
+
 ```
 1. Planner 制定计划 → 生成 4-6 个诊断步骤
 2. Executor 执行步骤 → 调用 MCP 工具（日志查询、监控数据）
@@ -312,13 +316,14 @@ make format            # 格式化代码
 make lint              # 代码检查
 ```
 
-
 ## 🐛 常见问题
 
 ### Windows 环境问题
 
 #### 1. `make` 命令不可用
+
 Windows 不支持 `make` 命令，请使用提供的批处理脚本：
+
 ```powershell
 # 启动服务
 .\start-windows.bat
@@ -328,7 +333,9 @@ Windows 不支持 `make` 命令，请使用提供的批处理脚本：
 ```
 
 #### 2. PowerShell 执行策略限制
+
 如果遇到 "无法加载文件，因为在此系统上禁止运行脚本" 错误：
+
 ```powershell
 # 临时允许脚本执行（管理员权限）
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
@@ -339,6 +346,7 @@ cmd
 ```
 
 #### 3. 端口被占用（Windows）
+
 ```powershell
 # 查看占用端口的进程
 netstat -ano | findstr :9900
@@ -350,6 +358,7 @@ taskkill /F /PID <PID>
 ### 通用问题
 
 ### API Key 错误
+
 ```bash
 # 检查环境变量
 cat .env | grep DASHSCOPE_API_KEY    # Linux/macOS
@@ -357,6 +366,7 @@ type .env | findstr DASHSCOPE_API_KEY  # Windows
 ```
 
 ### Milvus 连接失败
+
 ```bash
 # 确保本机有 Docker 服务并且已经启动（可以使用 Docker Desktop）
 
@@ -373,6 +383,7 @@ docker compose -f vector-database.yml restart standalone
 ### 服务无法启动
 
 **Linux/macOS:**
+
 ```bash
 # 查看服务日志
 tail -f logs/app_$(date +%Y-%m-%d).log  # FastAPI 主服务（Loguru 日志）
@@ -386,6 +397,7 @@ lsof -i :8004  # Monitor MCP
 ```
 
 **Windows:**
+
 ```powershell
 # 查看服务日志（获取今天的日期）
 $today = Get-Date -Format "yyyy-MM-dd"
@@ -410,7 +422,4 @@ netstat -ano | findstr :8004  # Monitor MCP
 - [阿里云 DashScope](https://dashscope.aliyun.com/)
 - [MCP 协议](https://modelcontextprotocol.io/)
 
-## 📄 许可证
-author： chief
-
-MIT License
+# 
