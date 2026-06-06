@@ -14,6 +14,7 @@ from app.config import config
 from loguru import logger
 from app.api import chat, health, file, aiops
 from app.core.milvus_client import milvus_manager
+from app.services.vector_store_manager import vector_store_manager
 from prometheus_fastapi_instrumentator import Instrumentator
 
 
@@ -31,6 +32,11 @@ async def lifespan(app: FastAPI):
     logger.info("🔌 正在连接 Milvus...")
     milvus_manager.connect()
     logger.info("✅ Milvus 连接成功")
+
+    # 预热 VectorStore（在正确的生命周期阶段初始化，避免 import 时过早连接）
+    logger.info("🔌 正在初始化 VectorStore...")
+    vector_store_manager._ensure_initialized()
+    logger.info("✅ VectorStore 初始化成功")
     
     logger.info("=" * 60)
     

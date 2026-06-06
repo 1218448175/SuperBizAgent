@@ -19,19 +19,27 @@ class VectorStoreManager:
     """向量存储管理器"""
 
     def __init__(self):
-        """初始化向量存储管理器"""
+        """初始化向量存储管理器
+
+        注意：不在构造时连接 Milvus，而是延迟到首次使用时（由 lifespan 预热或调用方触发）。
+        这避免了模块 import 阶段早于 FastAPI lifespan 建立连接导致的启动顺序隐患。
+        """
         self.vector_store = None
         self.collection_name = COLLECTION_NAME
+
+    def _ensure_initialized(self) -> None:
+        """确保 VectorStore 已初始化（惰性初始化，幂等）"""
+        if self.vector_store is not None:
+            return
         self._initialize_vector_store()
 
     def _initialize_vector_store(self):
-        """初始化 Milvus VectorStore"""
-        try:
-            # 必须在 PyMilvus / langchain_milvus 访问 Collection 之前建立连接，
-            # 否则会出现 ConnectionNotExistException: should create connection first.
-            # （模块导入时就会执行此处，早于 FastAPI lifespan 中的 milvus_manager.connect）
-            _ = milvus_manager.connect()
+        """初始化 Milvus VectorStore
 
+        调用方（lifespan 或 _ensure_initialized）需确保在此之前已调用
+        milvus_manager.connect() 建立与 Milvus 的连接。
+        """
+        try:
             connection_args = {
                 "host": config.milvus_host,
                 "port": config.milvus_port,
@@ -74,6 +82,8 @@ class VectorStoreManager:
             import time
             import uuid
             start_time = time.time()
+
+            self._ensure_initialized()
 
             # 为每个文档生成唯一 id（因为 auto_id=False）
             ids = [str(uuid.uuid4()) for _ in documents]
@@ -122,11 +132,12 @@ class VectorStoreManager:
 
     def get_vector_store(self) -> Milvus:
         """
-        获取 VectorStore 实例
+        获取 VectorStore 实例（首次调用时自动初始化）
 
         Returns:
             Milvus: VectorStore 实例
         """
+        self._ensure_initialized()
         return self.vector_store
 
     def similarity_search(self, query: str, k: int = 3) -> List[Document]:
@@ -141,6 +152,7 @@ class VectorStoreManager:
             List[Document]: 相关文档列表
         """
         try:
+            self._ensure_initialized()
             docs = self.vector_store.similarity_search(query, k=k)
             logger.debug(f"相似度搜索完成: query='{query}', 结果数={len(docs)}")
             return docs
