@@ -7,6 +7,7 @@
 from typing import Annotated, Any, AsyncGenerator, Dict, Sequence
 
 from langchain.agents import create_agent
+from langchain.agents.middleware import before_model
 from langchain_core.messages import (
     BaseMessage,
     HumanMessage,
@@ -38,17 +39,19 @@ class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
 
 
-def trim_messages_middleware(state: AgentState) -> dict[str, Any] | None:
+@before_model
+def trim_messages_middleware(state: AgentState, runtime) -> dict[str, Any] | None:
     """
     修剪消息历史，只保留最近的几条消息以适应上下文窗口
 
     策略：
-    - 保留第一条系统消息（System Message）
+    - system_prompt 由 create_agent 内部管理，不在 state 中，无需处理
     - 保留最近的 6 条消息（3 轮对话）
-    - 当消息少于等于 7 条时，不做修剪
+    - 当消息少于等于 6 条时，不做修剪
 
     Args:
         state: Agent 状态
+        runtime: 运行时上下文（LangGraph Runtime）
 
     Returns:
         包含修剪后消息的字典，如果无需修剪则返回 None
@@ -56,24 +59,18 @@ def trim_messages_middleware(state: AgentState) -> dict[str, Any] | None:
     messages = state["messages"]
 
     # 如果消息数量较少，无需修剪
-    if len(messages) <= 7:
+    if len(messages) <= 6:
         return None
-
-    # 提取第一条系统消息
-    first_msg = messages[0]
 
     # 保留最近的 6 条消息（确保包含完整的对话轮次）
     recent_messages = messages[-6:] if len(messages) % 2 == 0 else messages[-7:]
 
-    # 构建新的消息列表
-    new_messages = [first_msg] + list(recent_messages)
-
-    logger.debug(f"修剪消息历史: {len(messages)} -> {len(new_messages)} 条")
+    logger.debug(f"修剪消息历史: {len(messages)} -> {len(recent_messages)} 条")
 
     return {
         "messages": [
             RemoveMessage(id=REMOVE_ALL_MESSAGES),
-            *new_messages
+            *recent_messages
         ]
     }
 
@@ -143,7 +140,9 @@ class RagAgentService:
         self.agent = create_agent(
             self.model,
             tools=all_tools,
+            system_prompt=self.system_prompt,
             checkpointer=self.checkpointer,
+            middleware=[trim_messages_middleware],
         )
 
         self._agent_initialized = True
@@ -203,11 +202,8 @@ class RagAgentService:
 
             logger.info(f"[会话 {session_id}] RAG Agent 收到查询（非流式）: {question}")
 
-            # 构建消息列表（系统提示 + 用户问题）
-            messages = [
-                SystemMessage(content=self.system_prompt),
-                HumanMessage(content=question)
-            ]
+            # 构建消息列表（system_prompt 由 create_agent 内部管理，无需在此传入）
+            messages = [HumanMessage(content=question)]
 
             # 构建 Agent 输入
             agent_input = {"messages": messages}
@@ -270,11 +266,8 @@ class RagAgentService:
 
             logger.info(f"[会话 {session_id}] RAG Agent 收到查询（流式）: {question}")
 
-            # 构建消息列表（系统提示 + 用户问题）
-            messages = [
-                SystemMessage(content=self.system_prompt),
-                HumanMessage(content=question)
-            ]
+            # 构建消息列表（system_prompt 由 create_agent 内部管理，无需在此传入）
+            messages = [HumanMessage(content=question)]
 
             # 构建 Agent 输入
             agent_input = {"messages": messages}
