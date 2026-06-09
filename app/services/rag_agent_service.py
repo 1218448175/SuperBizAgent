@@ -7,15 +7,14 @@
 from typing import Annotated, Any, AsyncGenerator, Dict, Sequence
 
 from langchain.agents import create_agent
-from langchain.agents.middleware import before_model
+from langchain.agents.middleware import SummarizationMiddleware
 from langchain_core.messages import (
     BaseMessage,
     HumanMessage,
-    RemoveMessage,
     SystemMessage,
 )
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph.message import REMOVE_ALL_MESSAGES, add_messages
+from langgraph.graph.message import add_messages
 from loguru import logger
 from typing_extensions import TypedDict
 from langchain_qwq import ChatQwen
@@ -38,41 +37,6 @@ class AgentState(TypedDict):
     """Agent 状态"""
     messages: Annotated[Sequence[BaseMessage], add_messages]
 
-
-@before_model
-def trim_messages_middleware(state: AgentState, runtime) -> dict[str, Any] | None:
-    """
-    修剪消息历史，只保留最近的几条消息以适应上下文窗口
-
-    策略：
-    - system_prompt 由 create_agent 内部管理，不在 state 中，无需处理
-    - 保留最近的 6 条消息（3 轮对话）
-    - 当消息少于等于 6 条时，不做修剪
-
-    Args:
-        state: Agent 状态
-        runtime: 运行时上下文（LangGraph Runtime）
-
-    Returns:
-        包含修剪后消息的字典，如果无需修剪则返回 None
-    """
-    messages = state["messages"]
-
-    # 如果消息数量较少，无需修剪
-    if len(messages) <= 6:
-        return None
-
-    # 保留最近的 6 条消息（确保包含完整的对话轮次）
-    recent_messages = messages[-6:] if len(messages) % 2 == 0 else messages[-7:]
-
-    logger.debug(f"修剪消息历史: {len(messages)} -> {len(recent_messages)} 条")
-
-    return {
-        "messages": [
-            RemoveMessage(id=REMOVE_ALL_MESSAGES),
-            *recent_messages
-        ]
-    }
 
 
 class RagAgentService:
@@ -137,12 +101,25 @@ class RagAgentService:
 
         all_tools = self.tools + self.mcp_tools
 
+        # 创建摘要中间件：超过 5 轮（12 条消息）时，将旧消息总结为摘要，保留最近 2 轮
+        summary_model = ChatQwen(
+            model=self.model_name,
+            api_key=config.dashscope_api_key,
+            temperature=0,
+            streaming=False,
+        )
+        summary_middleware = SummarizationMiddleware(
+            model=summary_model,
+            trigger=("messages", 12),
+            keep=("messages", 4),
+        )
+
         self.agent = create_agent(
             self.model,
             tools=all_tools,
             system_prompt=self.system_prompt,
             checkpointer=self.checkpointer,
-            middleware=[trim_messages_middleware],
+            middleware=[summary_middleware],
         )
 
         self._agent_initialized = True
