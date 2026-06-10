@@ -1,0 +1,28 @@
+name: cpu_troubleshoot
+display_name: CPU 故障诊断
+description: 诊断CPU使用率过高问题，包括死循环定位、流量突增分析、定时任务排查、慢SQL导致的CPU飙升等
+version: "1.0.0"
+enabled: true
+keywords:
+  - cpu
+  - CPU
+  - cpu使用率
+  - CPU使用率
+  - cpu占用
+  - cpu高
+  - cpu过高
+  - 处理器
+  - 负载
+  - load
+  - 死循环
+  - 无限递归
+  - 雪崩
+trigger_patterns:
+  - "(?i)cpu.{0,5}(使用率|占用|高|飙升|异常|报警|告警)"
+  - "(?i)processor.{0,5}(high|busy|overload)"
+  - "(?i)load.{0,5}average"
+tags:
+  - cpu
+  - performance
+  - system
+author: SuperBizAgent Team

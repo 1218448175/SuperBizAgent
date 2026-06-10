@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     prometheus_base_url: str = "http://127.0.0.1:9090"
     prometheus_request_timeout: float = 10.0
 
+    # Skill 配置
+    skill_dir: str = "./app/skills/builtin"
+    skill_auto_index: bool = True         # 启动时自动索引 Skill 知识文档
+    skill_match_top_k: int = 2            # 每次匹配最多激活几个 Skill
+    skill_auto_activate: bool = True      # RAG Agent 查询时自动匹配并激活 Skill
+    skill_auto_deactivate_stale: bool = False  # 是否自动停用不再匹配的 Skill
+
     @property
     def mcp_servers(self) -> Dict[str, Dict[str, Any]]:
         """获取完整的 MCP 服务器配置"""

@@ -1,0 +1,30 @@
+name: disk_troubleshoot
+display_name: 磁盘故障诊断
+description: 诊断磁盘使用率过高问题，包括日志清理、临时文件堆积、数据归档、Docker资源清理、备份管理等
+version: "1.0.0"
+enabled: true
+keywords:
+  - 磁盘
+  - disk
+  - 硬盘
+  - 存储
+  - 空间不足
+  - 磁盘满
+  - 磁盘使用率
+  - 磁盘占用
+  - 日志过大
+  - 临时文件
+  - docker清理
+  - inode
+  - No space
+  - disk full
+trigger_patterns:
+  - "(?i)磁盘.{0,5}(使用率|占用|满|高|不足|空间|异常|报警|告警)"
+  - "(?i)disk.{0,5}(full|usage|space)"
+  - "(?i)No space left on device"
+  - "(?i)inode.{0,5}(耗尽|满)"
+tags:
+  - disk
+  - storage
+  - system
+author: SuperBizAgent Team

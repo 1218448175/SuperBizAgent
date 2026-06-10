@@ -1,0 +1,34 @@
+name: memory_troubleshoot
+display_name: 内存故障诊断
+description: 诊断内存使用率过高问题，包括内存泄漏定位、GC问题分析、缓存配置优化、JVM参数调优、OOM排查等
+version: "1.0.0"
+enabled: true
+keywords:
+  - 内存
+  - memory
+  - OOM
+  - oom
+  - 内存泄漏
+  - 内存溢出
+  - 内存占用
+  - 内存高
+  - 内存过高
+  - GC
+  - gc
+  - 垃圾回收
+  - heap
+  - 堆内存
+  - JVM
+  - jvm
+  - OutOfMemory
+  - 堆转储
+trigger_patterns:
+  - "(?i)内存.{0,5}(使用率|占用|高|泄漏|溢出|飙升|异常|报警|告警)"
+  - "(?i)(OOM|OutOfMemory)"
+  - "(?i)GC.{0,5}(频繁|耗时|overhead)"
+  - "(?i)heap.{0,5}(dump|memory|usage)"
+tags:
+  - memory
+  - performance
+  - jvm
+author: SuperBizAgent Team
