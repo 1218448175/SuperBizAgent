@@ -13,6 +13,7 @@ from loguru import logger
 from app.config import config
 from app.tools import DEFAULT_LOCAL_AGENT_TOOLS, retrieve_knowledge
 from app.agent.mcp_client import get_mcp_client_with_retry
+from app.skills import skill_manager, skill_registry
 from .state import PlanExecuteState
 from .utils import format_tools_description
 
@@ -74,6 +75,17 @@ async def planner(state: PlanExecuteState) -> Dict[str, Any]:
     logger.info(f"用户输入: {input_text}")
 
     try:
+        # 步骤0: 自动匹配并激活相关 Skill
+        logger.info("匹配相关 Skill...")
+        try:
+            matched = skill_manager.match(input_text)
+            for m in matched:
+                if not skill_registry.is_active(m.name):
+                    skill_manager.activate(m.name)
+                    logger.info(f"AIOps Planner 自动激活 Skill: {m.display_name}")
+        except Exception as e:
+            logger.warning(f"Skill 匹配失败（不影响诊断）: {e}")
+
         # 步骤1: 查询内部文档获取相关经验
         logger.info("查询内部文档，寻找相关经验...")
         experience_docs = ""
@@ -104,7 +116,20 @@ async def planner(state: PlanExecuteState) -> Dict[str, Any]:
         # 格式化工具描述
         tools_description = format_tools_description(all_tools)
 
-        # 步骤3: 格式化经验文档上下文
+        # 步骤3: 格式化经验文档上下文（含 Skill 信息）
+        active_skill_names = skill_registry.get_active_skill_names()
+        skill_context = ""
+        if active_skill_names:
+            skill_names_display = []
+            for sn in active_skill_names:
+                m = skill_registry.get_manifest(sn)
+                skill_names_display.append(m.display_name if m else sn)
+            skill_context = (
+                f"## 已激活的专业领域能力\n\n"
+                f"当前已激活以下诊断 Skill: {', '.join(skill_names_display)}。"
+                f"这些 Skill 提供了相关领域的排查方法论和工具，请在制定计划时优先参考。\n\n"
+            )
+
         if experience_docs:
             experience_context = dedent(f"""
                 ## 相关经验文档
@@ -117,6 +142,9 @@ async def planner(state: PlanExecuteState) -> Dict[str, Any]:
             """).strip()
         else:
             experience_context = ""
+
+        # 将 Skill 上下文放在经验文档前面
+        experience_context = skill_context + experience_context
 
         # 步骤4: 创建 LLM 并生成计划
         llm = ChatQwen(

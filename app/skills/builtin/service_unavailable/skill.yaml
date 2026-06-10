@@ -1,0 +1,35 @@
+name: service_unavailable
+display_name: 服务不可用诊断
+description: 诊断服务完全不可用的紧急故障，包括应用崩溃、数据库连接失败、依赖服务故障、配置错误、网络故障、资源耗尽等
+version: "1.0.0"
+enabled: true
+keywords:
+  - 服务不可用
+  - 服务挂了
+  - 服务宕机
+  - 服务崩溃
+  - "503"
+  - "502"
+  - 健康检查失败
+  - 服务中断
+  - 全部下线
+  - 紧急
+  - 故障
+  - unavailable
+  - down
+  - crash
+  - 数据库连接失败
+  - 依赖故障
+  - connection refused
+  - 启动失败
+trigger_patterns:
+  - "(?i)服务.{0,5}(不可用|挂了|宕机|崩溃|中断|异常|挂了|down)"
+  - "(?i)(503|502|504).{0,10}(错误|error)"
+  - "(?i)健康检查.{0,5}(失败|全部)"
+  - "(?i)connection refused"
+  - "(?i)所有实例.{0,5}(下线|不可用)"
+tags:
+  - emergency
+  - service
+  - availability
+author: SuperBizAgent Team

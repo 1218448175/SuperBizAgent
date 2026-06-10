@@ -12,9 +12,10 @@ import os
 
 from app.config import config
 from loguru import logger
-from app.api import chat, health, file, aiops
+from app.api import chat, health, file, aiops, skills
 from app.core.milvus_client import milvus_manager
 from app.services.vector_store_manager import vector_store_manager
+from app.skills import skill_manager
 from prometheus_fastapi_instrumentator import Instrumentator
 
 
@@ -37,7 +38,26 @@ async def lifespan(app: FastAPI):
     logger.info("🔌 正在初始化 VectorStore...")
     vector_store_manager._ensure_initialized()
     logger.info("✅ VectorStore 初始化成功")
-    
+
+    # 初始化 Skill 系统
+    logger.info("🔌 正在初始化 Skill 系统...")
+    try:
+        discovered = skill_manager.discover_all()
+        logger.info(f"✅ 发现 {len(discovered)} 个 Skill")
+
+        if config.skill_auto_activate:
+            activated = skill_manager.activate_all()
+            active_count = sum(1 for ok, _ in activated.values() if ok)
+            logger.info(f"✅ 已激活 {active_count} 个 Skill")
+
+        if config.skill_auto_index:
+            logger.info("🔌 正在索引 Skill 知识文档...")
+            index_results = skill_manager.index_all_skills()
+            total_chunks = sum(count for count, _ in index_results.values())
+            logger.info(f"✅ Skill 文档索引完成，共 {total_chunks} 个分片")
+    except Exception as e:
+        logger.error(f"Skill 系统初始化失败（不影响核心功能）: {e}")
+
     logger.info("=" * 60)
     
     yield
@@ -70,6 +90,7 @@ app.include_router(health.router, tags=["健康检查"])
 app.include_router(chat.router, prefix="/api", tags=["对话"])
 app.include_router(file.router, prefix="/api", tags=["文件管理"])
 app.include_router(aiops.router, prefix="/api", tags=["AIOps智能运维"])
+app.include_router(skills.router, prefix="/api", tags=["Skill 管理"])
 
 # 挂载静态文件
 static_dir = "static"

@@ -1,0 +1,31 @@
+name: slow_response
+display_name: 响应慢诊断
+description: 诊断服务响应时间过长问题，包括数据库慢查询、外部API超时、代码性能瓶颈、缓存失效、系统资源不足、网络延迟等
+version: "1.0.0"
+enabled: true
+keywords:
+  - 响应慢
+  - 响应时间
+  - 慢查询
+  - 超时
+  - timeout
+  - 延迟
+  - 性能
+  - 慢
+  - slow
+  - latency
+  - P99
+  - p99
+  - 卡顿
+  - 慢响应
+trigger_patterns:
+  - "(?i)响应.{0,5}(慢|时间长|超时|延迟)"
+  - "(?i)(P99|p99|P95|p95).{0,5}(响应|延迟)"
+  - "(?i)slow.{0,5}(query|response|request)"
+  - "(?i)超时.{0,5}(错误|error|timeout)"
+tags:
+  - performance
+  - response-time
+  - database
+  - cache
+author: SuperBizAgent Team

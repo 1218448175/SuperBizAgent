@@ -27,6 +27,7 @@ from app.agent.mcp_client import (
     format_exception_chain,
     suggest_mcp_transport,
 )
+from app.skills import skill_manager, skill_registry
 
 # 阿里千问大模型和langchain集成参考： https://docs.langchain.com/oss/python/integrations/chat/qwen
 # 注意：需要配置环境变量 DASHSCOPE_API_BASE=https://dashscope.aliyuncs.com/compatible-mode/v1 否则默认访问的是新加坡站点
@@ -72,13 +73,24 @@ class RagAgentService:
         # Agent 初始化（会在异步方法中完成）
         self.agent = None
         self._agent_initialized = False
+        self._skill_version: int = 0  # 跟踪 Skill 注册表版本，检测热加载变更
 
         logger.info(f"RAG Agent 服务初始化完成 (ChatQwen), model={self.model_name}, streaming={streaming}")
 
     async def _initialize_agent(self):
-        """异步初始化 Agent（包括 MCP 工具）"""
+        """异步初始化 Agent（包括 MCP 工具 + Skill 工具）
+
+        支持热加载：如果 Skill 注册表版本发生变化，自动重新初始化。
+        """
+        current_skill_version = skill_registry.version
+        if self._agent_initialized and self._skill_version == current_skill_version:
+            return  # 无需重新初始化
+
         if self._agent_initialized:
-            return
+            logger.info(
+                f"Skill 版本变更 (v{self._skill_version} → v{current_skill_version})，"
+                f"正在重新初始化 Agent..."
+            )
 
         for name, server in config.mcp_servers.items():
             hint = suggest_mcp_transport(
@@ -101,6 +113,20 @@ class RagAgentService:
 
         all_tools = self.tools + self.mcp_tools
 
+        # 收集 Skill 工具和提示词
+        skill_tools, skill_prompts = skill_manager.get_active_context_for_agent()
+        if skill_tools:
+            logger.info(f"已加载 {len(skill_tools)} 个 Skill 工具")
+        if skill_prompts:
+            logger.info(f"已加载 Skill 提示词 ({len(skill_prompts)} 字符)")
+
+        all_tools = all_tools + skill_tools
+
+        # 增强系统提示词（基础提示词 + Skill 提示词）
+        enhanced_prompt = self.system_prompt
+        if skill_prompts:
+            enhanced_prompt += "\n\n---\n\n## 已激活的专业领域能力\n\n" + skill_prompts
+
         # 创建摘要中间件：超过 5 轮（12 条消息）时，将旧消息总结为摘要，保留最近 2 轮
         summary_model = ChatQwen(
             model=self.model_name,
@@ -117,17 +143,53 @@ class RagAgentService:
         self.agent = create_agent(
             self.model,
             tools=all_tools,
-            system_prompt=self.system_prompt,
+            system_prompt=enhanced_prompt,
             checkpointer=self.checkpointer,
             middleware=[summary_middleware],
         )
 
         self._agent_initialized = True
+        self._skill_version = skill_registry.version
 
 
         if all_tools:
             tool_names = [tool.name if hasattr(tool, "name") else str(tool) for tool in all_tools]
             logger.info(f"可用工具列表: {', '.join(tool_names)}")
+
+    async def _auto_match_skills(self, question: str) -> None:
+        """根据用户问题自动匹配并激活相关 Skill
+
+        只在 Agent 未初始化时执行（首次查询），
+        确保 Skill 在 Agent 创建前就位。
+        """
+        if self._agent_initialized:
+            return  # Agent 已初始化，Skill 已注入
+
+        if not getattr(config, "skill_auto_activate", True):
+            return  # 配置禁用了自动激活
+
+        try:
+            matched = skill_manager.match(question)
+            if not matched:
+                logger.debug("未匹配到相关 Skill")
+                return
+
+            for manifest in matched:
+                if not skill_registry.is_active(manifest.name):
+                    success, msg = skill_manager.activate(manifest.name)
+                    if success:
+                        logger.info(f"自动激活 Skill: {manifest.display_name}")
+                    else:
+                        logger.warning(f"自动激活 Skill 失败: {msg}")
+        except Exception as e:
+            logger.warning(f"Skill 自动匹配失败（不影响对话）: {e}")
+
+    async def reinitialize(self) -> None:
+        """强制重新初始化 Agent（用于 Skill 热加载后刷新工具和提示词）"""
+        self._agent_initialized = False
+        self.agent = None
+        await self._initialize_agent()
+        logger.info("Agent 已重新初始化（Skill 热加载生效）")
 
     def _build_system_prompt(self) -> str:
         """
@@ -175,6 +237,9 @@ class RagAgentService:
             str: 完整答案
         """
         try:
+            # 自动匹配并激活 Skill（如果配置启用）
+            await self._auto_match_skills(question)
+
             await self._initialize_agent()
 
             logger.info(f"[会话 {session_id}] RAG Agent 收到查询（非流式）: {question}")
@@ -239,6 +304,9 @@ class RagAgentService:
                 - data: 具体内容
         """
         try:
+            # 自动匹配并激活 Skill（如果配置启用）
+            await self._auto_match_skills(question)
+
             await self._initialize_agent()
 
             logger.info(f"[会话 {session_id}] RAG Agent 收到查询（流式）: {question}")
