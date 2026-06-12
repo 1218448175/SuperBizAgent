@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     chunk_max_size: int = 800
     chunk_overlap: int = 100
 
+    # Hybrid Retrieval (BM25 + Vector + RRF)
+    hybrid_enabled: bool = True        # 主开关: False = 纯向量检索降级
+    hybrid_bm25_top_k: int = 10        # BM25 路候选数
+    hybrid_vector_top_k: int = 10      # 向量路候选数
+    hybrid_rrf_k: int = 60             # RRF 常数 (标准值)
+    hybrid_final_top_k: int = 5        # 融合后最终返回数
+
     # MCP 服务配置（transport: stdio | sse | streamable-http）
     # 腾讯云托管 MCP 的 URL 通常含 /sse/，需使用 sse；本地 FastMCP 使用 streamable-http
     mcp_cls_transport: str = "streamable-http"
