@@ -2,14 +2,15 @@
 
 > 企业级智能对话和运维助手，支持 RAG 知识库问答和 AIOps 智能诊断
 
-[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-green.svg)](https://fastapi.tiangolo.com/)
 [![LangChain](https://img.shields.io/badge/LangChain-latest-orange.svg)](https://www.langchain.com/)
 
 ## ✨ 核心特性
 
 - 🤖 **智能对话** - LangChain 多轮对话 + 流式输出
-- 📚 **RAG 问答** - 向量检索增强，支持文档上传、自动建立向量索引、自动更新知识库
+- 📚 **RAG 问答** - BM25 + 向量混合检索 + RRF 融合，支持文档上传和自动索引
+- 🧩 **Skill 系统** - 可插拔领域知识包，关键词自动匹配，热加载无需重启
 - 🔧 **AIOps 诊断** - Plan-Execute-Replan 自动故障诊断和根因分析
 - 🌐 **Web 界面** - 现代化 UI，支持多种对话模式：快速问答/流式对话
 - 🔌 **MCP 集成** - 日志查询和监控数据工具接入
@@ -19,13 +20,14 @@
 - **框架**: FastAPI + LangChain + LangGraph
 - **LLM**: 阿里云 DashScope (通义千问)
 - **向量库**: Milvus
+- **检索增强**: BM25 (rank-bm25) + jieba 中文分词 + RRF 融合
 - **工具协议**: MCP (Model Context Protocol)
 
 ## 🚀 快速开始
 
 ### 环境要求
 
-- Python 3.10+
+- Python 3.11+
 - 阿里云 DashScope API Key ([获取地址](https://dashscope.aliyun.com/))
 
 ### 安装和启动
@@ -133,13 +135,18 @@ python -c "import requests, os, time; [requests.post('http://localhost:9900/api/
 
 ### 核心接口
 
-| 功能       | 方法   | 路径                 | 说明         |
-| -------- | ---- | ------------------ | ---------- |
-| 普通对话     | POST | `/api/chat`        | 一次性返回      |
-| 流式对话     | POST | `/api/chat_stream` | SSE 流式输出   |
-| AIOps 诊断 | POST | `/api/aiops`       | 自动故障诊断（流式） |
-| 文件上传     | POST | `/api/upload`      | 上传并索引文档    |
-| 健康检查     | GET  | `/api/health`      | 服务状态检查     |
+| 功能       | 方法   | 路径                        | 说明              |
+| -------- | ---- | ------------------------- | --------------- |
+| 普通对话     | POST | `/api/chat`               | 一次性返回           |
+| 流式对话     | POST | `/api/chat_stream`        | SSE 流式输出        |
+| AIOps 诊断 | POST | `/api/aiops`              | 自动故障诊断（流式）      |
+| 文件上传     | POST | `/api/upload`             | 上传并索引文档         |
+| Skill 列表  | GET  | `/api/skills`             | 列出所有 Skill 及状态  |
+| Skill 激活  | POST | `/api/skills/{name}/activate`  | 按需激活 Skill      |
+| Skill 停用  | POST | `/api/skills/{name}/deactivate`| 停用 Skill        |
+| Skill 重载  | POST | `/api/skills/reload`      | 重新扫描 Skill 目录   |
+| Skill 索引  | POST | `/api/skills/{name}/index`| 手动索引 Skill 知识文档 |
+| 健康检查     | GET  | `/api/health`             | 服务状态检查          |
 
 ### 使用示例
 
@@ -165,74 +172,83 @@ curl -X POST "http://localhost:9900/api/aiops" \
 ## 📁 项目结构
 
 ```
-super_biz_agent_py/
+OnCall_Agent/
 ├── app/                                    # 应用核心
 │   ├── __init__.py                         # 包初始化（自动加载日志配置）
-│   ├── main.py                             # FastAPI 应用入口
-│   ├── config.py                           # 配置管理（环境变量、MCP 服务器配置）
+│   ├── main.py                             # FastAPI 应用入口（含 BM25/Skill 预热）
+│   ├── config.py                           # 配置管理（含 Hybrid/Skill 配置）
 │   ├── api/                                # API 路由层
 │   │   ├── __init__.py
-│   │   ├── chat.py                         # 对话接口（RAG 聊天）
+│   │   ├── chat.py                         # 对话接口（RAG 聊天 + Skill 匹配）
 │   │   ├── aiops.py                        # AIOps 接口（故障诊断）
 │   │   ├── file.py                         # 文件管理（文档上传）
-│   │   └── health.py                       # 健康检查（服务状态）
+│   │   ├── health.py                       # 健康检查（服务状态）
+│   │   └── skills.py                       # Skill 管理接口（热加载/激活/停用）
 │   ├── services/                           # 业务服务层
 │   │   ├── __init__.py
-│   │   ├── rag_agent_service.py            # RAG Agent（LangGraph 状态图）
-│   │   ├── aiops_service.py                # AIOps 服务（计划-执行-重规划）
+│   │   ├── rag_agent_service.py            # RAG Agent（LangGraph + Skill 注入）
+│   │   ├── aiops_service.py                # AIOps 服务（Plan-Execute-Replan）
 │   │   ├── vector_store_manager.py         # 向量存储管理器
-│   │   ├── vector_embedding_service.py     # 向量embedding服务
+│   │   ├── vector_embedding_service.py     # 向量 Embedding 服务
 │   │   ├── vector_index_service.py         # 向量索引服务
 │   │   ├── vector_search_service.py        # 向量检索服务
-│   │   └── document_splitter_service.py    # 文档分割服务
+│   │   ├── document_splitter_service.py    # 文档分割服务
+│   │   ├── bm25_index_service.py           # BM25 关键词索引（jieba 分词）
+│   │   └── hybrid_retriever_service.py     # 混合检索（BM25+向量+RRF 融合）
+│   ├── skills/                             # Skill 领域知识包系统
+│   │   ├── __init__.py                     # 模块导出
+│   │   ├── base.py                         # SkillManifest / SkillContext 模型
+│   │   ├── registry.py                     # SkillRegistry — 注册与发现
+│   │   ├── manager.py                      # SkillManager — 匹配/激活/索引
+│   │   └── builtin/                        # 内置 Skill（5 个运维领域）
+│   │       ├── cpu_troubleshoot/           # CPU 故障排查
+│   │       ├── memory_troubleshoot/        # 内存故障排查
+│   │       ├── disk_troubleshoot/          # 磁盘故障排查
+│   │       ├── service_unavailable/        # 服务不可用排查
+│   │       └── slow_response/              # 响应慢排查
 │   ├── agent/                              # Agent 模块
 │   │   ├── __init__.py
-│   │   ├── mcp_client.py                   # MCP 客户端（工具调用）
+│   │   ├── mcp_client.py                   # MCP 客户端（单例 + 重试）
 │   │   └── aiops/                          # AIOps 核心逻辑
-│   │       ├── __init__.py
-│   │       ├── planner.py                  # 计划制定器
-│   │       ├── executor.py                 # 步骤执行器
-│   │       ├── replanner.py                # 重规划器
+│   │       ├── planner.py                  # Planner 节点
+│   │       ├── executor.py                 # Executor 节点
+│   │       ├── replanner.py                # Replanner 节点
 │   │       ├── state.py                    # 状态定义
 │   │       └── utils.py                    # 工具函数
 │   ├── models/                             # 数据模型层
-│   │   ├── __init__.py
 │   │   ├── aiops.py                        # AIOps 模型
 │   │   ├── document.py                     # 文档模型
 │   │   ├── request.py                      # 请求模型
 │   │   └── response.py                     # 响应模型
 │   ├── tools/                              # Agent 工具集
-│   │   ├── __init__.py
-│   │   ├── knowledge_tool.py               # 知识库查询工具
-│   │   └── time_tool.py                    # 时间工具
+│   │   ├── knowledge_tool.py               # 知识库查询（混合检索 + 格式化）
+│   │   ├── time_tool.py                    # 当前时间工具
+│   │   └── query_metrics_alerts.py         # Prometheus 告警查询
 │   ├── core/                               # 核心组件
-│   │   ├── __init__.py
-│   │   ├── llm_factory.py                  # LLM 工厂（模型管理）
+│   │   ├── llm_factory.py                  # LLM 工厂（ChatOpenAI 兼容）
 │   │   └── milvus_client.py                # Milvus 客户端
-│   └── utils/                              # 工具类
-│       ├── __init__.py
-│       └── logger.py                       # 日志配置（Loguru）
+│   └── utils/
+│       └── logger.py                       # Loguru 日志配置
+├── eval/                                   # 检索质量评估框架
+│   ├── queries.py                          # 15 条测试查询（5 领域 × 3）
+│   ├── ground_truth.py                     # Ground truth 自动标注
+│   ├── metrics.py                          # Recall@K / MRR / NDCG@K
+│   ├── evaluator.py                        # 三路对比评估器
+│   └── run_evaluation.py                   # 评估入口脚本
 ├── static/                                 # Web 前端（纯静态）
 │   ├── index.html                          # 主页面
 │   ├── app.js                              # 前端逻辑
 │   └── styles.css                          # 样式表
 ├── mcp_servers/                            # MCP 服务器
-│   ├── cls_server.py                       # CLS 日志查询服务
-│   ├── monitor_server.py                   # 监控数据服务
-│   └── README.md                           # MCP 服务说明
-├── aiops-docs/                             # 运维知识库（Markdown 文档）
-├── logs/                                   # 日志目录（Loguru 自动创建）
-│   └── app_YYYY-MM-DD.log                  # 按天轮转的日志文件
-├── uploads/                                # 上传文件临时目录
-├── volumes/                                # Milvus 数据持久化目录
-├── .env                                    # 环境变量配置（需手动创建）
-├── Makefile                                # 项目管理命令（Linux/macOS）
-├── start-windows.bat                       # Windows 启动脚本
-├── stop-windows.bat                        # Windows 停止脚本
-├── vector-database.yml                     # Milvus Docker Compose 配置
-├── pyproject.toml                          # 项目配置（依赖、元数据）
-├── uv.lock                                 # uv 依赖锁定文件
-├── pyrightconfig.json                      # Pyright 类型检查配置
+│   ├── cls_server.py                       # CLS 日志查询（Mock，端口 8003）
+│   └── monitor_server.py                   # 监控数据（Mock，端口 8004）
+├── aiops-docs/                             # 运维知识库（Markdown）
+├── logs/                                   # 日志目录（Loguru 按天轮转）
+├── .env                                    # 环境变量配置
+├── Makefile                                # Linux/macOS 项目管理
+├── start-windows.bat / stop-windows.bat    # Windows 启停脚本
+├── vector-database.yml                     # Milvus Docker Compose
+├── pyproject.toml                          # 项目元数据 + 依赖配置
 └── README.md                               # 项目说明
 ```
 
@@ -242,10 +258,11 @@ super_biz_agent_py/
 
 ```bash
 # 阿里云LLM DashScope 配置（必填）
-# 秘钥管理： https://bailian.console.aliyun.com/cn-beijing/?spm=5176.29597918.J_SEsSjsNv72yRuRFS2VknO.2.61ac133ccTVQLw&tab=demohouse#/api-key
-DASHSCOPE_API_KEY=your-api-key （配置你自己的秘钥）
-DASHSCOPE_API_BASE=https://dashscope.aliyuncs.com/compatible-mode/v1  # 不配置则默认会使用新加坡站点
+# 秘钥管理： https://bailian.console.aliyun.com/
+DASHSCOPE_API_KEY=your-api-key
+DASHSCOPE_API_BASE=https://dashscope.aliyuncs.com/compatible-mode/v1
 DASHSCOPE_MODEL=qwen-max
+DASHSCOPE_EMBEDDING_MODEL=text-embedding-v4
 
 # Milvus 配置
 MILVUS_HOST=localhost
@@ -255,6 +272,26 @@ MILVUS_PORT=19530
 RAG_TOP_K=3
 CHUNK_MAX_SIZE=800
 CHUNK_OVERLAP=100
+
+# 混合检索 (BM25 + 向量 + RRF)
+HYBRID_ENABLED=True          # 主开关：False 降级为纯向量检索
+HYBRID_BM25_TOP_K=10         # BM25 路候选数
+HYBRID_VECTOR_TOP_K=10       # 向量路候选数
+HYBRID_RRF_K=60              # RRF 平滑常数
+HYBRID_FINAL_TOP_K=5         # 融合后返回数
+
+# Skill 领域知识包
+SKILL_DIR=./app/skills/builtin
+SKILL_AUTO_INDEX=True        # 启动时自动索引 Skill 文档
+SKILL_AUTO_ACTIVATE=True     # 对话时自动匹配激活
+SKILL_MATCH_TOP_K=2          # 每次最多激活 Skill 数
+
+# MCP 服务
+MCP_CLS_URL=http://localhost:8003/mcp
+MCP_MONITOR_URL=http://localhost:8004/mcp
+
+# Prometheus
+PROMETHEUS_BASE_URL=http://127.0.0.1:9090
 ```
 
 ## 🎯 AIOps 智能运维
@@ -291,6 +328,56 @@ curl -X POST "http://localhost:9900/api/aiops" \
 3. Replanner 评估结果 → 决定继续/调整/生成报告
 4. 输出诊断报告 → 根因分析 + 运维建议
 ```
+
+## 🧩 Skill 领域知识包
+
+每个 Skill 是一个独立的运维领域知识包，包含专业提示词、专用工具和知识文档，系统根据用户问题**自动匹配并激活**。
+
+### 内置 Skill（5 个）
+
+| Skill | 领域 | 匹配关键词示例 |
+|-------|------|---------------|
+| `cpu_troubleshoot` | CPU 故障排查 | CPU、使用率、飙升、死循环 |
+| `memory_troubleshoot` | 内存故障排查 | 内存、OOM、堆内存、泄漏 |
+| `disk_troubleshoot` | 磁盘故障排查 | 磁盘、空间不足、日志写满 |
+| `service_unavailable` | 服务不可用 | 不可用、503、connection refused |
+| `slow_response` | 响应慢排查 | 慢、延迟、P99、响应时间 |
+
+### Skill 结构
+
+```
+builtin/{skill_name}/
+├── prompt.md       # 专业系统提示词（注入 Agent）
+├── tools.py        # 专用工具函数（@tool 装饰器）
+└── docs/*.md       # 领域知识文档（自动索引到 Milvus）
+```
+
+### 管理 API
+
+```bash
+# 查看所有 Skill
+curl http://localhost:9900/api/skills
+
+# 激活指定 Skill
+curl -X POST http://localhost:9900/api/skills/cpu_troubleshoot/activate
+
+# 停用指定 Skill
+curl -X POST http://localhost:9900/api/skills/cpu_troubleshoot/deactivate
+
+# 重新扫描 Skill 目录（热加载）
+curl -X POST http://localhost:9900/api/skills/reload
+```
+
+## 📊 检索评估
+
+项目内置检索质量评估框架，支持 **Vector / BM25 / Hybrid (RRF)** 三路对比。
+
+```bash
+# 运行评估（需先启动 Milvus 并索引文档）
+python eval/run_evaluation.py
+```
+
+评估指标：**Recall@K**（查全率）、**MRR**（首个正确结果排名）、**NDCG@K**（排名质量）。
 
 ## 📝 开发指南
 
