@@ -39,6 +39,15 @@ async def lifespan(app: FastAPI):
     vector_store_manager._ensure_initialized()
     logger.info("✅ VectorStore 初始化成功")
 
+    # 预热 BM25 索引（首次 build 约 1-2s，含 jieba 分词）
+    logger.info("🔌 正在构建 BM25 索引...")
+    from app.services.bm25_index_service import bm25_index_service
+    try:
+        bm25_count = bm25_index_service.refresh()
+        logger.info(f"✅ BM25 索引就绪: {bm25_count} 个文档")
+    except Exception as e:
+        logger.warning(f"BM25 索引构建失败（混合检索将降级为纯向量）: {e}")
+
     # 初始化 Skill 系统
     logger.info("🔌 正在初始化 Skill 系统...")
     try:

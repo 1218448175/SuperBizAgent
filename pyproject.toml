@@ -32,6 +32,8 @@ dependencies = [
     "langchain-qwq>=0.3.4",
     "prometheus-client>=0.24.1",
     "prometheus-fastapi-instrumentator>=7.1.0",
+    "rank-bm25>=0.2.2",
+    "jieba>=0.42.1",
 ]
 
 [project.optional-dependencies]

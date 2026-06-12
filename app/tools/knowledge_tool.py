@@ -8,41 +8,53 @@ from loguru import logger
 
 from app.config import config
 from app.services.vector_store_manager import vector_store_manager
+from app.services.hybrid_retriever_service import hybrid_retriever_service
 
 
 @tool(response_format="content_and_artifact")
 def retrieve_knowledge(query: str) -> Tuple[str, List[Document]]:
     """从知识库中检索相关信息来回答问题
-    
+
     当用户的问题涉及专业知识、文档内容或需要参考资料时，使用此工具。
-    
+    支持 BM25 + 向量混合检索，通过 RRF 融合排序。
+
     Args:
         query: 用户的问题或查询
-        
+
     Returns:
         Tuple[str, List[Document]]: (格式化的上下文文本, 原始文档列表)
     """
     try:
         logger.info(f"知识检索工具被调用: query='{query}'")
-        
-        # 从向量存储中检索相关文档
-        vector_store = vector_store_manager.get_vector_store()
-        retriever = vector_store.as_retriever(
-            search_kwargs={"k": config.rag_top_k}
-        )
-        
-        docs = retriever.invoke(query)
-        
+
+        if config.hybrid_enabled:
+            # 混合检索 (BM25 + Vector + RRF)
+            docs = hybrid_retriever_service.retrieve(query)
+            if not docs:
+                logger.warning("未检索到相关文档")
+                return "没有找到相关信息。", []
+            context = format_docs(docs)
+        else:
+            # 纯向量检索 (降级路径)
+            vector_store = vector_store_manager.get_vector_store()
+            retriever = vector_store.as_retriever(
+                search_kwargs={"k": config.rag_top_k}
+            )
+            docs = retriever.invoke(query)
+
+            if not docs:
+                logger.warning("未检索到相关文档")
+                return "没有找到相关信息。", []
+
+            context = format_docs(docs)
+
         if not docs:
             logger.warning("未检索到相关文档")
             return "没有找到相关信息。", []
-        
-        # 格式化文档为上下文
-        context = format_docs(docs)
-        
-        logger.info(f"检索到 {len(docs)} 个相关文档")
+
+        logger.info(f"检索到 {len(docs)} 个相关文档 (hybrid={'on' if config.hybrid_enabled else 'off'})")
         return context, docs
-        
+
     except Exception as e:
         logger.error(f"知识检索工具调用失败: {e}")
         return f"检索知识时发生错误: {str(e)}", []
