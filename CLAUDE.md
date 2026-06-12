@@ -303,6 +303,13 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 9900
 - 测试：pytest + pytest-asyncio (asyncio_mode=auto)，覆盖率目标 app/
 - Pre-commit hooks 已配置
 
+### Git 工作流约定 🔴 重要
+
+- **每次 PR 使用新分支**: 远程分支在 PR merge 后会被立即删除（个人项目，保持 git 历史整洁）
+- 分支命名: `feat/<feature-name>` / `fix/<bug-name>` / `docs/<what>` / `refactor/<what>`
+- 绝对不要在已有分支上继续提交新的 PR——旧分支可能已被远程删除，force push 会丢失 commits
+- 提交信息末尾统一附加 `Co-Authored-By: Claude <noreply@anthropic.com>`
+
 ### 文档同步约定 🔴 重要
 
 **每次代码变更后必须同步更新以下配套文档**，保持文档与代码一致：
