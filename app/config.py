@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     # RAG 配置
     rag_top_k: int = 3
     rag_model: str = "qwen-max"  # 使用快速响应模型，不带扩展思考
+    enable_search_default: bool = False  # 默认关闭 Qwen 原生联网搜索，用户可通过前端开关控制
 
     # 文档分块配置
     chunk_max_size: int = 800

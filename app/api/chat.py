@@ -38,7 +38,8 @@ async def chat(request: ChatRequest):
         logger.info(f"[会话 {request.id}] 收到快速对话请求: {request.question}")
         answer = await rag_agent_service.query(
             request.question,
-            session_id=request.id
+            session_id=request.id,
+            enable_search=request.enable_search,
         )
 
         logger.info(f"[会话 {request.id}] 快速对话完成")
@@ -94,7 +95,11 @@ async def chat_stream(request: ChatRequest):
 
     async def event_generator():
         try:
-            async for chunk in rag_agent_service.query_stream(request.question, session_id=request.id):
+            async for chunk in rag_agent_service.query_stream(
+                request.question,
+                session_id=request.id,
+                enable_search=request.enable_search,
+            ):
                 chunk_type = chunk.get("type", "unknown")
                 chunk_data = chunk.get("data", None)
 

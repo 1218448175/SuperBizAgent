@@ -719,6 +719,66 @@ body {
     gap: 8px;
 }
 
+/* 联网搜索开关 */
+.search-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    padding: 2px 4px;
+}
+
+.search-toggle:hover .toggle-label {
+    color: #202124;
+}
+
+.search-toggle input {
+    display: none;
+}
+
+.toggle-slider {
+    position: relative;
+    width: 34px;
+    height: 20px;
+    background: #dadce0;
+    border-radius: 10px;
+    transition: background 0.3s;
+    flex-shrink: 0;
+}
+
+.toggle-slider::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: #ffffff;
+    border-radius: 50%;
+    transition: transform 0.3s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.search-toggle input:checked + .toggle-slider {
+    background: #1a73e8;
+}
+
+.search-toggle input:checked + .toggle-slider::after {
+    transform: translateX(14px);
+}
+
+.toggle-label {
+    font-size: 13px;
+    color: #5f6368;
+    transition: color 0.3s;
+}
+
+.search-toggle input:checked ~ .toggle-label {
+    color: #1a73e8;
+}
+
 .message-input {
     width: 100%;
     border: none;

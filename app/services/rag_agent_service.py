@@ -61,6 +61,15 @@ class RagAgentService:
             streaming=streaming,
         )
 
+        # 带 Qwen 原生联网搜索的模型变体
+        self.search_model = ChatQwen(
+            model=self.model_name,
+            api_key=config.dashscope_api_key,
+            temperature=0.7,
+            streaming=streaming,
+            extra_body={"enable_search": True},
+        )
+
         # 定义基础工具（与 AIOps Planner/Executor 使用同一套默认本地工具）
         self.tools = list(DEFAULT_LOCAL_AGENT_TOOLS)
 
@@ -148,6 +157,27 @@ class RagAgentService:
             middleware=[summary_middleware],
         )
 
+        # 预创建带联网搜索的 Agent 变体（避免每次请求重建）
+        summary_model_search = ChatQwen(
+            model=self.model_name,
+            api_key=config.dashscope_api_key,
+            temperature=0,
+            streaming=False,
+            extra_body={"enable_search": True},
+        )
+        summary_middleware_search = SummarizationMiddleware(
+            model=summary_model_search,
+            trigger=("messages", 12),
+            keep=("messages", 4),
+        )
+        self.search_agent = create_agent(
+            self.search_model,
+            tools=all_tools,
+            system_prompt=enhanced_prompt,
+            checkpointer=self.checkpointer,
+            middleware=[summary_middleware_search],
+        )
+
         self._agent_initialized = True
         self._skill_version = skill_registry.version
 
@@ -225,6 +255,7 @@ class RagAgentService:
         self,
         question: str,
         session_id: str,
+        enable_search: bool = False,
     ) -> str:
         """
         非流式处理用户问题（一次性返回完整答案）
@@ -232,6 +263,7 @@ class RagAgentService:
         Args:
             question: 用户问题
             session_id: 会话ID（作为 thread_id）
+            enable_search: 是否启用 Qwen 原生联网搜索
 
         Returns:
             str: 完整答案
@@ -257,7 +289,8 @@ class RagAgentService:
                 }
             }
 
-            result = await self.agent.ainvoke(
+            agent = self.search_agent if enable_search else self.agent
+            result = await agent.ainvoke(
                 input=agent_input,
                 config=config_dict,
             )
@@ -290,6 +323,7 @@ class RagAgentService:
         self,
         question: str,
         session_id: str,
+        enable_search: bool = False,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         流式处理用户问题（逐步返回答案片段）
@@ -297,6 +331,7 @@ class RagAgentService:
         Args:
             question: 用户问题
             session_id: 会话ID（作为 thread_id）
+            enable_search: 是否启用 Qwen 原生联网搜索
 
         Yields:
             Dict[str, Any]: 包含流式数据的字典
@@ -324,7 +359,8 @@ class RagAgentService:
                 }
             }
 
-            async for token, metadata in self.agent.astream(
+            agent = self.search_agent if enable_search else self.agent
+            async for token, metadata in agent.astream(
                 input=agent_input,
                 config=config_dict,
                 stream_mode="messages",

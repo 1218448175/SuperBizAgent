@@ -3,6 +3,7 @@ class SuperBizAgentApp {
     constructor() {
         this.apiBaseUrl = 'http://localhost:9900/api';
         this.currentMode = 'quick'; // 'quick' 或 'stream'
+        this.enableSearch = false;  // Qwen 原生联网搜索开关
         this.sessionId = this.generateSessionId();
         this.isStreaming = false;
         this.currentChatHistory = []; // 当前对话的消息历史
@@ -109,7 +110,8 @@ class SuperBizAgentApp {
         this.modeDropdown = document.getElementById('modeDropdown');
         this.currentModeText = document.getElementById('currentModeText');
         this.fileInput = document.getElementById('fileInput');
-        
+        this.enableSearchCheckbox = document.getElementById('enableSearchCheckbox');
+
         // 聊天区域元素
         this.chatMessages = document.getElementById('chatMessages');
         this.loadingOverlay = document.getElementById('loadingOverlay');
@@ -153,12 +155,21 @@ class SuperBizAgentApp {
         
         // 点击外部关闭下拉菜单
         document.addEventListener('click', (e) => {
-            if (!this.modeSelectorBtn.contains(e.target) && 
+            if (!this.modeSelectorBtn.contains(e.target) &&
                 !this.modeDropdown.contains(e.target)) {
                 this.closeModeDropdown();
             }
         });
-        
+
+        // 联网搜索开关
+        if (this.enableSearchCheckbox) {
+            this.enableSearchCheckbox.addEventListener('change', (e) => {
+                this.enableSearch = e.target.checked;
+                const label = e.target.checked ? '已开启' : '已关闭';
+                this.showNotification(`联网搜索${label}`, 'info');
+            });
+        }
+
         // 发送消息
         if (this.sendButton) {
             this.sendButton.addEventListener('click', () => this.sendMessage());
@@ -268,6 +279,10 @@ class SuperBizAgentApp {
         
         // 重置模式为快速
         this.currentMode = 'quick';
+        this.enableSearch = false;
+        if (this.enableSearchCheckbox) {
+            this.enableSearchCheckbox.checked = false;
+        }
         this.updateUI();
         
         // 重新设置居中样式（确保对话框居中显示）
@@ -608,6 +623,11 @@ class SuperBizAgentApp {
             }
         });
         
+        // 更新联网搜索开关状态
+        if (this.enableSearchCheckbox) {
+            this.enableSearchCheckbox.checked = this.enableSearch;
+        }
+
         // 更新发送按钮状态
         if (this.sendButton) {
             this.sendButton.disabled = this.isStreaming;
@@ -688,7 +708,8 @@ class SuperBizAgentApp {
                 },
                 body: JSON.stringify({
                     Id: this.sessionId,
-                    Question: message
+                    Question: message,
+                    EnableSearch: this.enableSearch
                 })
             });
 
@@ -744,7 +765,8 @@ class SuperBizAgentApp {
                 },
                 body: JSON.stringify({
                     Id: this.sessionId,
-                    Question: message
+                    Question: message,
+                    EnableSearch: this.enableSearch
                 })
             });
 
