@@ -5,6 +5,10 @@ from pathlib import Path
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
+from app.services.document_parser_service import (
+    document_parser_service,
+    SUPPORTED_EXTENSION_NAMES,
+)
 from app.services.vector_index_service import vector_index_service
 from loguru import logger
 
@@ -12,10 +16,10 @@ router = APIRouter()
 
 # 文件上传后存储的路径
 UPLOAD_DIR = Path("./uploads")
-# 支持的文件类型
-ALLOWED_EXTENSIONS = ["txt", "md"]
+# 支持的文件类型（从 DocumentParserService 动态获取）
+ALLOWED_EXTENSIONS = sorted(SUPPORTED_EXTENSION_NAMES)
 # 单个文件支持最大大小
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB（PDF/XLSX 等二进制格式更占空间）
 
 
 @router.post("/upload")

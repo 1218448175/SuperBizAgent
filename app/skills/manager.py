@@ -12,6 +12,10 @@ from langchain_core.documents import Document
 from loguru import logger
 
 from app.config import config
+from app.services.document_parser_service import (
+    document_parser_service,
+    SUPPORTED_EXTENSIONS,
+)
 from app.skills.base import SkillManifest, SkillContext
 from app.skills.registry import skill_registry
 
@@ -169,7 +173,7 @@ class SkillManager:
         if not docs_dir.exists():
             return 0
         return len(
-            [f for f in docs_dir.iterdir() if f.is_file() and f.suffix in (".md", ".txt")]
+            [f for f in docs_dir.iterdir() if f.is_file() and f.suffix.lower() in SUPPORTED_EXTENSIONS]
         )
 
     # ── 匹配 ────────────────────────────────────────────────────
@@ -253,13 +257,13 @@ class SkillManager:
         errors: List[str] = []
 
         for doc_file in docs_dir.iterdir():
-            if doc_file.suffix not in (".md", ".txt"):
+            if doc_file.suffix.lower() not in SUPPORTED_EXTENSIONS:
                 continue
             if doc_file.name.startswith("_"):
                 continue  # 跳过以下划线开头的文件
 
             try:
-                content = doc_file.read_text(encoding="utf-8")
+                content = document_parser_service.parse(str(doc_file.resolve()))
                 file_path = doc_file.resolve().as_posix()
 
                 # 先删除旧数据

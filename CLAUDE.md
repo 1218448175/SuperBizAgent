@@ -2,7 +2,7 @@
 
 ## 项目概览
 
-**SuperBizAgent** (v1.3.0) 是一套企业级智能 OnCall 运维系统，基于 FastAPI + LangChain + LangGraph 构建，提供 RAG 知识库问答（含 BM25+向量混合检索）和 AIOps 智能故障诊断能力，并内置可插拔的 Skill 领域知识包系统。
+**SuperBizAgent** (v1.4.0) 是一套企业级智能 OnCall 运维系统，基于 FastAPI + LangChain + LangGraph 构建，提供 RAG 知识库问答（含 BM25+向量混合检索）和 AIOps 智能故障诊断能力，并内置可插拔的 Skill 领域知识包系统。支持 TXT/MD/PDF/DOCX/HTML/CSV/XLSX 多格式文档解析，内含错误修复机制。
 
 - **Python 版本**: >=3.11, <3.14 (`.python-version` 锁定 3.13)
 - **包管理器**: uv (推荐) / pip
@@ -33,6 +33,7 @@ OnCall_Agent/
 │   │   ├── vector_index_service.py    # 文档批量索引
 │   │   ├── vector_search_service.py   # 底层向量搜索（直接操作 pymilvus）
 │   │   ├── document_splitter_service.py # Markdown/文本智能分割
+│   │   ├── document_parser_service.py  # 多格式文档解析（PDF/DOCX/HTML/CSV/XLSX + 修复机制）
 │   │   ├── bm25_index_service.py  # BM25 关键词索引（jieba 分词 + BM25Okapi）
 │   │   └── hybrid_retriever_service.py # 混合检索（BM25+向量双路召回 + RRF 融合）
 │   ├── skills/                   # Skill 领域知识包系统
@@ -199,6 +200,7 @@ Skill 目录结构 (每个 Skill 一个子目录):
 | 工作流 | langgraph | StateGraph (RAG Agent + AIOps) |
 | 向量库 | pymilvus, langchain-milvus | 文档存储和检索 |
 | 文档处理 | langchain-text-splitters | Markdown/文本分割 |
+| 文档解析 | pymupdf, pypdf, docx2txt, python-docx, beautifulsoup4, lxml, openpyxl, chardet | 多格式文档解析 + 编码修复（可选依赖） |
 | 检索增强 | rank-bm25, jieba | BM25 关键词检索 + 中文分词 |
 | MCP | fastmcp, langchain-mcp-adapters, mcp | 工具协议集成 |
 | 工具 | httpx, aiohttp, aiofiles | HTTP 客户端 + 异步文件 |
@@ -279,6 +281,7 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 9900
 - `vector_index_service` (VectorIndexService)
 - `vector_search_service` (VectorSearchService)
 - `document_splitter_service` (DocumentSplitterService)
+- `document_parser_service` (DocumentParserService) — 多格式文档解析 + 错误修复
 - `_mcp_client` (MultiServerMCPClient, 延迟初始化)
 
 ### 工具函数约定
@@ -352,3 +355,33 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 9900
 - **文档去重**: 基于 `_file_name + hash(content_prefix)` 作为 RRF 融合的文档 key
 - **评估框架** (`eval/`): 支持 Vector/BM25/Hybrid 三路对比，指标含 Recall@K, MRR, NDCG@K
 - **运行评估**: `python eval/run_evaluation.py`（需先启动 Milvus 并完成文档索引）
+
+### 文档解析与修复机制 (document_parser_service.py)
+
+支持 **8 种文档格式**，通过字典驱动的解析器注册表实现可扩展架构：
+
+| 格式 | 主解析器 | 回退解析器 | 依赖组 |
+|------|---------|-----------|--------|
+| `.txt` / `.md` | 内置 `read_text` | 编码检测 (chardet) | core (零依赖) |
+| `.pdf` | pymupdf (AGPL-3.0) | pypdf (BSD-3) | `pdf` |
+| `.docx` | docx2txt | python-docx | `docx` |
+| `.html` / `.htm` | bs4 + lxml | html.parser (内置) | `html` |
+| `.csv` | 内置 `csv` 模块 | csv.Sniffer 分隔符检测 | core |
+| `.xlsx` | openpyxl (read_only) | — | `xlsx` |
+
+**错误修复流程**（每个文件最多修复一次）：
+```
+主解析器尝试 → 失败
+  → _diagnose() 根据错误类型生成修复策略
+    → Encoding 错误? → chardet 自动检测编码
+    → PDF 解析失败? → 回退到 pypdf
+    → DOCX 解析失败? → 回退到 python-docx
+    → HTML 解析失败? → 回退到 html.parser
+    → CSV 分隔符问题? → csv.Sniffer 自动检测
+  → 修复成功 → 记录 INFO 日志（用户无感知）
+  → 修复失败 → RuntimeError（含原始错误 + 修复尝试记录）
+```
+
+- **可选依赖**: 所有非标准库依赖均可选，缺失时 `ImportError` 会转为清晰的 `pip install` 提示
+- **安装方式**: `pip install -e ".[pdf]"` (按需) / `pip install -e ".[docs]"` (全部)
+- **扩展方式**: 调用 `document_parser_service.register_parser(ext, parser_fn, dep_group)` 注册自定义格式
