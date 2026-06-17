@@ -9,7 +9,7 @@
 ## ✨ 核心特性
 
 - 🤖 **智能对话** - LangChain 多轮对话 + 流式输出
-- 📚 **RAG 问答** - BM25 + 向量混合检索 + RRF 融合，支持文档上传和自动索引
+- 📚 **RAG 问答** — BM25 + 向量混合检索 + RRF 融合，支持 TXT/MD/PDF/DOCX/HTML/CSV/XLSX 多格式文档上传和自动索引，内含错误修复机制
 - 🧩 **Skill 系统** - 可插拔领域知识包，关键词自动匹配，热加载无需重启
 - 🔧 **AIOps 诊断** - Plan-Execute-Replan 自动故障诊断和根因分析
 - 🌐 **Web 界面** - 现代化 UI，支持多种对话模式：快速问答/流式对话
@@ -21,6 +21,7 @@
 - **LLM**: 阿里云 DashScope (通义千问)
 - **向量库**: Milvus
 - **检索增强**: BM25 (rank-bm25) + jieba 中文分词 + RRF 融合
+- **文档解析**: pymupdf (PDF), pypdf (PDF回退), docx2txt (DOCX), python-docx (DOCX回退), BS4 (HTML), openpyxl (XLSX) — 全部可选依赖
 - **工具协议**: MCP (Model Context Protocol)
 
 ## 🚀 快速开始
@@ -193,6 +194,7 @@ OnCall_Agent/
 │   │   ├── vector_index_service.py         # 向量索引服务
 │   │   ├── vector_search_service.py        # 向量检索服务
 │   │   ├── document_splitter_service.py    # 文档分割服务
+│   │   ├── document_parser_service.py       # 文档解析（多格式文本提取+修复）
 │   │   ├── bm25_index_service.py           # BM25 关键词索引（jieba 分词）
 │   │   └── hybrid_retriever_service.py     # 混合检索（BM25+向量+RRF 融合）
 │   ├── skills/                             # Skill 领域知识包系统
@@ -378,6 +380,37 @@ python eval/run_evaluation.py
 ```
 
 评估指标：**Recall@K**（查全率）、**MRR**（首个正确结果排名）、**NDCG@K**（排名质量）。
+
+## 📝 文档解析与修复
+
+项目内置多格式文档解析器，支持 **8 种格式**，所有非标准库依赖均可选安装。
+
+### 支持的格式
+
+| 格式 | 安装命令 | 说明 |
+|------|---------|------|
+| TXT / MD | 内置 | 零依赖，自动编码检测 |
+| PDF | `pip install -e ".[pdf]"` | pymupdf 主解析 + pypdf 回退 |
+| DOCX | `pip install -e ".[docx]"` | docx2txt 主解析 + python-docx 回退 |
+| HTML | `pip install -e ".[html]"` | bs4 + lxml 主解析 + html.parser 回退 |
+| CSV | 内置 | Python 内置 csv 模块，含分隔符自动检测 |
+| XLSX | `pip install -e ".[xlsx]"` | openpyxl read_only 流式模式 |
+
+```bash
+# 一键安装所有文档解析依赖
+pip install -e ".[docs]"
+```
+
+### 错误修复机制
+
+每个文件在主解析器失败时，自动尝试一次回退策略：
+- 编码问题 → chardet 自动检测
+- PDF 解析失败 → 自动切换 pypdf
+- DOCX 解析失败 → 自动切换 python-docx
+- HTML 解析失败 → 自动切换 Python 内置 html.parser
+- CSV 解析失败 → 自动检测分隔符
+
+修复成功对用户透明（仅记录日志），修复失败时返回详细的错误链（原始错误 + 尝试过的修复）。
 
 ## 📝 开发指南
 

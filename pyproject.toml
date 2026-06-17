@@ -51,6 +51,49 @@ dev = [
     "ipdb>=0.13.13",
 ]
 
+# ── 文档解析可选依赖 ────────────────────────────────────────────
+# 按需安装: uv pip install -e ".[pdf]" / ".[docx]" / ".[docs]" 一键全部
+
+# PDF 解析（pymupdf: AGPL-3.0 许可证，商业使用前请注意兼容性）
+pdf = [
+    "pymupdf",    # 主解析器 — 速度最快，文本质量最好
+    "pypdf",      # 回退解析器 — BSD-3 许可证，纯 Python
+]
+
+# DOCX 解析
+docx = [
+    "docx2txt",       # 主解析器 — 简单高效
+    "python-docx",    # 回退解析器 — 结构化访问
+]
+
+# HTML 解析
+html = [
+    "beautifulsoup4",
+    "lxml",
+]
+
+# Excel 解析
+xlsx = [
+    "openpyxl",
+]
+
+# 编码修复（解析中文/日文/韩文文档推荐安装）
+encoding = [
+    "chardet",
+]
+
+# 一键安装所有文档解析依赖（等同于 pdf + docx + html + xlsx + encoding）
+docs = [
+    "pymupdf",
+    "pypdf",
+    "docx2txt",
+    "python-docx",
+    "beautifulsoup4",
+    "lxml",
+    "openpyxl",
+    "chardet",
+]
+
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
