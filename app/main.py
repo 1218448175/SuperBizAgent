@@ -31,13 +31,19 @@ async def lifespan(app: FastAPI):
     
     # 连接 Milvus
     logger.info("🔌 正在连接 Milvus...")
-    milvus_manager.connect()
-    logger.info("✅ Milvus 连接成功")
+    try:
+        milvus_manager.connect()
+        logger.info("✅ Milvus 连接成功")
+    except Exception as e:
+        logger.warning(f"⚠️ Milvus 连接失败，应用将以降级模式运行（向量检索不可用）: {e}")
 
     # 预热 VectorStore（在正确的生命周期阶段初始化，避免 import 时过早连接）
     logger.info("🔌 正在初始化 VectorStore...")
-    vector_store_manager._ensure_initialized()
-    logger.info("✅ VectorStore 初始化成功")
+    try:
+        vector_store_manager._ensure_initialized()
+        logger.info("✅ VectorStore 初始化成功")
+    except Exception as e:
+        logger.warning(f"⚠️ VectorStore 初始化失败，向量检索功能不可用: {e}")
 
     # 预热 BM25 索引（首次 build 约 1-2s，含 jieba 分词）
     logger.info("🔌 正在构建 BM25 索引...")
