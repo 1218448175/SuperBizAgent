@@ -1,4 +1,4 @@
-/* 现代化简洁风格 - 类似Gemini设计 */
+﻿/* 现代化简洁风格 - 类似Gemini设计 */
 * {
     margin: 0;
     padding: 0;
@@ -708,7 +708,7 @@ body {
 .input-bottom-bar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 6px;
     margin-top: 8px;
     padding-top: 8px;
 }
@@ -717,6 +717,7 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-left: auto;
 }
 
 /* 联网搜索开关 */
@@ -1223,3 +1224,5 @@ body {
         right: 0;
     }
 }
+
+
